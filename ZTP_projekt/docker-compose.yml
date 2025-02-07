@@ -1,36 +1,28 @@
 ﻿version: "3.8"
+
+networks:
+  custom_network:
+    driver: bridge
+
 services:
   rabbitmq:
     image: rabbitmq:management
     container_name: rabbitmq
+    networks:
+      - custom_network
     ports:
       - "5672:5672"
       - "15672:15672"
+    restart: always
 
-  app1:
+  app:
     build: .
-    container_name: app1
-    environment:
-      - RABBITMQ_HOST=rabbitmq
-      - PART=left
-    depends_on:
-      - rabbitmq
-
-  app2:
-    build: .
-    container_name: app2
-    environment:
-      - RABBITMQ_HOST=rabbitmq
-      - PART=right
-    depends_on:
-      - rabbitmq
-
-  merger:
-    build: .
-    container_name: merger
+    networks:
+      - custom_network
     environment:
       - RABBITMQ_HOST=rabbitmq
     depends_on:
       - rabbitmq
-    volumes:
-      - ./wwwroot/ProcessedImages:/app/wwwroot/ProcessedImages 
+    deploy:
+      replicas: 10
+    restart: always

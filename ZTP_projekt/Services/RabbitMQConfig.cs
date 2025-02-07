@@ -1,5 +1,6 @@
 ﻿using MassTransit;
 using Microsoft.Extensions.DependencyInjection;
+using System;
 
 namespace ZTP_projekt.Services
 {
@@ -9,12 +10,11 @@ namespace ZTP_projekt.Services
         {
             services.AddMassTransit(x =>
             {
-                x.AddConsumer<ImageProcessingConsumer>(); // Konsument przetwarzający obrazy
-                x.AddConsumer<ImageMergingConsumer>();    // Konsument scalający obrazy
+                x.AddConsumer<ImageProcessingConsumer>();
 
                 x.UsingRabbitMq((context, cfg) =>
                 {
-                    cfg.Host("localhost", h =>
+                    cfg.Host("rabbitmq", "/", h =>
                     {
                         h.Username("guest");
                         h.Password("guest");
@@ -22,15 +22,11 @@ namespace ZTP_projekt.Services
 
                     cfg.ReceiveEndpoint("image_processing_queue", e =>
                     {
+                        e.PrefetchCount = 1;
                         e.ConfigureConsumer<ImageProcessingConsumer>(context);
                     });
 
-                    cfg.ReceiveEndpoint("image_merge_queue", e =>
-                    {
-                        e.ConfigureConsumer<ImageMergingConsumer>(context);
-                    });
-
-                    cfg.ConfigureEndpoints(context);
+                    Console.WriteLine("[INFO] Połączono z RabbitMQ!");
                 });
             });
         }

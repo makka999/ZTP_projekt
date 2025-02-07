@@ -1,39 +1,29 @@
-﻿using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
-using System;
+﻿using System;
+using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace ZTP_projekt.Services
 {
     public static class ImageProcessingService
     {
-        public static string DarkenImage(string base64Image, float brightnessFactor = 0.5f)
+        public static Bitmap ApplyBrightness(Bitmap bitmap, float brightnessFactor)
         {
-            try
-            {
-                using var image = LoadFromBase64(base64Image);
-                image.Mutate(x => x.Brightness(brightnessFactor));
+            Bitmap bitmap2 = new Bitmap(bitmap.Width, bitmap.Height);
 
-                return ConvertToBase64(image);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[ERROR] Błąd przyciemiania obrazu: {ex.Message}");
-                return null;
-            }
-        }
+            for (int y = 0; y < bitmap.Height; y++)
+                for (int x = 0; x < bitmap.Width; x++)
+                {
+                    Color oldColor = bitmap.GetPixel(x, y);
+                    int r = (int)(brightnessFactor * oldColor.R);
+                    int g = (int)(brightnessFactor * oldColor.G);
+                    int b = (int)(brightnessFactor * oldColor.B);
+                    bitmap2.SetPixel(x, y, Color.FromArgb(r, g, b));
+                }
 
-        private static Image LoadFromBase64(string base64)
-        {
-            byte[] imageBytes = Convert.FromBase64String(base64);
-            return Image.Load(imageBytes);
-        }
-
-        private static string ConvertToBase64(Image image)
-        {
-            using var ms = new MemoryStream();
-            image.SaveAsJpeg(ms);
-            return Convert.ToBase64String(ms.ToArray());
+            return bitmap2;
         }
     }
 }

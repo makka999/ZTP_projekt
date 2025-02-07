@@ -1,12 +1,7 @@
-﻿using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using SixLabors.ImageSharp;
-using System;
+﻿using Microsoft.AspNetCore.Mvc;
 using System.IO;
 using System.Threading.Tasks;
 using ZTP_projekt.Services;
-using ZTP_projekt.Models;
 
 namespace ZTP_projekt.Controllers
 {
@@ -14,37 +9,36 @@ namespace ZTP_projekt.Controllers
     [ApiController]
     public class ImageController : ControllerBase
     {
-        private readonly IWebHostEnvironment _env;
-        private readonly ImageProcessingProducer _producer; // Producent RabbitMQ
+        private readonly ImageProcessingProducer _producer;
 
-        public ImageController(IWebHostEnvironment env, ImageProcessingProducer producer)
+        public ImageController(ImageProcessingProducer producer)
         {
-            _env = env;
             _producer = producer;
         }
 
-        [HttpPost("darken")]
-        public async Task<IActionResult> DarkenImage([FromForm] IFormFile imageFile, [FromServices] ImageProcessingProducer producer)
+        [HttpPost("process-folder")]
+        public async Task<IActionResult> ProcessAllImages()
+        {
+            await _producer.SendImageProcessingRequests();
+            return Ok("Wysłano wszystkie obrazy do przetworzenia.");
+        }
+
+        [HttpPost("process-single")]
+        public async Task<IActionResult> ProcessSingleImage([FromForm] IFormFile imageFile)
         {
             if (imageFile == null || imageFile.Length == 0)
                 return BadRequest("Brak pliku.");
 
-            string fileName = $"{Guid.NewGuid()}.jpg";
-            string savePath = Path.Combine(_env.WebRootPath ?? "wwwroot", "ProcessedImages", fileName);
+            string uploadPath = Path.Combine("wwwroot", "ProcessedImages", imageFile.FileName);
+            Directory.CreateDirectory(Path.GetDirectoryName(uploadPath));
 
-            // Tworzenie folderu, jeśli nie istnieje
-            Directory.CreateDirectory(Path.GetDirectoryName(savePath));
-
-            // Zapis obrazu i natychmiastowe zamknięcie strumienia
-            using (var fileStream = new FileStream(savePath, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var stream = new FileStream(uploadPath, FileMode.Create))
             {
-                await imageFile.CopyToAsync(fileStream);
+                await imageFile.CopyToAsync(stream);
             }
 
-            // Wysłanie zadania do kolejki RabbitMQ
-            await producer.SendImageProcessingRequest(savePath);
-
-            return Ok(new { Message = "Obraz dodany do kolejki", FilePath = savePath });
+            await _producer.SendImageProcessingRequest(uploadPath);
+            return Ok($"Plik {imageFile.FileName} został wysłany do przetwarzania.");
         }
     }
 }
